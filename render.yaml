@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: kdi-mcp-server
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python server.py
+    envVars:
+      - key: KDI_API_KEY
+        sync: false
+      - key: KDI_CATEGORY_CODES
+        value: A,B,C,D,E,F
