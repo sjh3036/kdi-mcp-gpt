@@ -9,3 +9,11 @@ services:
         sync: false
       - key: KDI_CATEGORY_CODES
         value: A,B,C,D,E,F
+  - type: web
+    name: estimate-advisor-mcp-server
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python estimate_advisor_server.py
+    envVars:
+      - key: LAW_OC
+        sync: false
