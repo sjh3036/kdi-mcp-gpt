@@ -75,3 +75,61 @@ Use this after the MCP app is connected:
 
 신규 자료가 없으면 "오늘 신규 KDI 연구자료는 없습니다."라고 알려줘.
 ```
+
+---
+
+# Estimate Advisor MCP Server (`estimate_advisor_server.py`)
+
+A second, independent MCP server that advises on 공사·물품·용역 견적서 (construction /
+goods / services quotations) under the **국가를 당사자로 하는 계약에 관한 법률**
+(Act on Contracts to Which the State Is a Party) and its 시행령/시행규칙.
+
+## What It Exposes
+
+- `advise_contract_method`: Given a contract type and 추정가격(estimated price, KRW),
+  reports whether 일반경쟁/지명경쟁/수의계약 is available and the article basis
+  (영 제23조, 제26조).
+- `advise_quotation`: For negotiated contracts (수의계약), reports how many
+  quotations are required (1인/2인 이상), whether the e-procurement system
+  (나라장터) is mandatory, whether the quotation can be omitted, and the
+  re-quotation rule — based on 영 제30조 and 규칙 제33조.
+- `fetch_article`: Fetches the current official article text live from
+  law.go.kr (법/시행령/시행규칙), so the amounts hardcoded in this server can be
+  cross-checked against the latest amendment.
+- `search`: Keyword search across the 국가계약법 law family via law.go.kr.
+
+**Important:** The KRW thresholds in this server were verified against the law
+in force as of the article citations in the code, but the enforcement decree
+and rule are amended periodically. Always cross-check with `fetch_article`
+before relying on an answer for an actual procurement decision.
+
+## Local Setup
+
+```bash
+pip install -r requirements.txt
+cp .env.example .env
+```
+
+Edit `.env` and set `LAW_OC` to your law.go.kr Open API user ID (register at
+https://open.law.go.kr — it's free). `fetch_article` and `search` need it;
+`advise_contract_method` and `advise_quotation` work without it since their
+rules are embedded in the code.
+
+Run:
+
+```bash
+python estimate_advisor_server.py
+```
+
+The MCP endpoint is `http://localhost:8001/sse/` (override the port with `PORT`).
+
+## Deploy Notes
+
+Set these environment variables in your hosting provider:
+
+- `LAW_OC`: your law.go.kr Open API user ID.
+- `LAW_VERIFY_SSL`: keep `true` in production.
+- `PORT`: usually provided by the host.
+
+`render.yaml` defines this as a second Render web service
+(`estimate-advisor-mcp-server`) alongside the KDI server.
