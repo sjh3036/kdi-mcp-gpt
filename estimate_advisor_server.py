@@ -130,6 +130,15 @@ BIDDER_CATEGORY_BASIS: dict[BidderCategory, str | None] = {
     "특수지식_학술연구등": "영 제26조제1항제5호가목4) (학술연구·원가계산·건설기술 등, 추정가격 2천만원 초과 1억원 이하)",
 }
 
+# 입찰자 요건별 수의계약 상한. 단위: 원. 0이면 금액 특례 없음.
+# 소기업·소상공인(가목3)과 특수지식(가목4)은 1억원 이하, 청년창업기업(가목7)은 5천만원 이하.
+BIDDER_CATEGORY_NEGOTIATED_LIMIT: dict[BidderCategory, int] = {
+    "일반": 0,
+    "소기업_소상공인": 100_000_000,
+    "청년창업기업": 50_000_000,
+    "특수지식_학술연구등": 100_000_000,
+}
+
 # 1인 견적으로 충분한 무조건적 사유(금액과 무관). 영 제30조제1항제1호.
 UNCONDITIONAL_SINGLE_QUOTATION_REASONS = {
     "긴급_재해_비상": "영 제26조제1항제1호가목",
@@ -262,11 +271,28 @@ def advise_quotation_logic(
     method = advise_contract_method_logic(contract_type, estimated_price_krw)
     notes: list[str] = list(method.notes)
 
-    negotiated_available = method.negotiated_contract_available or (
-        bidder_category != "일반" and estimated_price_krw <= EXTENDED_NEGOTIATED_LIMIT
+    # 입찰자 요건 특례(가목3)·4)·7))는 물품·용역 계약에만, 각 요건별 상한 이하에서만 적용된다.
+    category_limit = BIDDER_CATEGORY_NEGOTIATED_LIMIT[bidder_category]
+    bidder_special_available = (
+        contract_type in EXTENDED_NEGOTIATED_TYPES
+        and bidder_category != "일반"
+        and estimated_price_krw <= category_limit
     )
-    if not method.negotiated_contract_available and negotiated_available:
+    # 긴급·재해, 경쟁불성립 등 무조건적 사유는 금액과 무관하게 수의계약이 성립한다.
+    unconditional_reason = single_quotation_reason != "해당없음"
+
+    negotiated_available = (
+        method.negotiated_contract_available
+        or bidder_special_available
+        or unconditional_reason
+    )
+    if not method.negotiated_contract_available and bidder_special_available:
         notes.append(f"{bidder_category} 특례({BIDDER_CATEGORY_BASIS[bidder_category]})로 수의계약 가능")
+    if not method.negotiated_contract_available and unconditional_reason:
+        notes.append(
+            f"금액 한도와 무관한 수의계약 사유({UNCONDITIONAL_SINGLE_QUOTATION_REASONS[single_quotation_reason]})에 "
+            "해당하여 수의계약 가능"
+        )
 
     if not negotiated_available:
         return QuotationAdvice(
